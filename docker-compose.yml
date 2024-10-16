@@ -1,0 +1,181 @@
+version: '3.7'
+services:
+  zookeeper:
+    image: 'confluentinc/cp-zookeeper'
+    container_name: zookeeperserver
+    ports:
+      - '2181:2181'
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SASL_ENABLED: 'false'
+    restart: always
+    networks:
+      - kafka-network    
+  kafka-1:
+    image: 'confluentinc/cp-server:7.7.1'
+    container_name: kafkaserver-1
+    depends_on:
+      - zookeeper
+    ports:
+      - '9094:9094'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeperserver:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafkaserver-1:9094,SASL_PLAINTEXT://kafkaserver-1:9097,TOKEN://kafkaserver-1:9098
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,TOKEN:SASL_PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      ZOOKEEPER_SASL_ENABLED: 'false'
+                                                                                                    #KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN 
+      KAFKA_LISTENER_NAME_INTERNAL_SASL_ENABLED_MECHANISMS: PLAIN                                #SCRAM-SHA-256
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN,OAUTHBEARER                                             #SCRAM-SHA-256
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/configs/kafka_server_jaas.conf -Dzookeeper.sasl.client=false -Dlogback.configurationFile=/etc/kafka/libs/logback.xml" 
+                                                                                              #KAFKA_LISTENER_NAME_SASL_PLAINTEXT_SCRAM_SHA_256_SASL_JAAS_CONFIG: |
+                                                                                              #org.apache.kafka.common.security.scram.ScramLoginModule required
+                                                                                               #username="Arun" password="allkeys";        
+      KAFKA_AUTHORIZER_CLASS_NAME: io.confluent.kafka.security.authorizer.ConfluentServerAuthorizer
+      KAFKA_CONFLUENT_AUTHORIZER_ACCESS_RULE_PROVIDERS: CONFLUENT
+      KAFKA_SUPER_USERS: User:admin
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: localhost:9094
+      KAFKA_CONFLUENT_METADATA_SERVER_LISTENERS: http://0.0.0.0:8090
+      KAFKA_CONFLUENT_METADATA_SERVER_ADVERTISED_LISTENERS: http://kafkaserver-1:8090
+      KAFKA_CONFLUENT_METADATA_SERVER_AUTHENTICATION_METHOD: BEARER
+      KAFKA_CONFLUENT_METADATA_SERVER_USER_STORE: FILE
+      KAFKA_CONFLUENT_METADATA_SERVER_USER_STORE_FILE_PATH: /etc/kafka/tokens/login.properties
+      KAFKA_CONFLUENT_METADATA_SERVER_TOKEN_KEY_PATH: /etc/kafka/tokens/privateKey.pem
+      KAFKA_LISTENER_NAME_TOKEN_SASL_ENABLED_MECHANISMS: OAUTHBEARER
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_LOGIN_CALLBACK_HANDLER_CLASS: io.confluent.kafka.server.plugins.auth.token.TokenBearerServerLoginCallbackHandler
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_SERVER_CALLBACK_HANDLER_CLASS: io.confluent.kafka.server.plugins.auth.token.TokenBearerValidatorCallbackHandler
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_JAAS_CONFIG: \
+             org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required \
+             publicKeyPath="/etc/kafka/tokens/publicKey.pem";
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CONFLUENT_METADATA_TOPIC_REPLICATION_FACTOR: 3     
+                   
+  
+            
+    volumes:
+            - /home/charan/configs:/etc/kafka/configs
+            - /home/charan/stores:/etc/kafka/secrets      
+            - /home/charan/tokenKeyPair:/etc/kafka/tokens
+            - /home/charan/libs:/etc/kafka/libs  
+            - /home/charan/admin:/home/appuser                                                                  #- /usr/share/java/confluent-security/connect:/usr/share/java/kafka  
+    restart: always
+    networks:
+      - kafka-network    
+  kafka-2:
+    image: 'confluentinc/cp-server:7.7.1'
+    container_name: kafkaserver-2
+    depends_on:
+      - zookeeper
+      - kafka-1
+    ports:
+      - '9095:9095'
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeperserver:2181
+      ZOOKEEPER_SASL_ENABLED: 'false'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafkaserver-2:9095,SASL_PLAINTEXT://kafkaserver-2:9097,TOKEN://kafkaserver-2:9098
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,TOKEN:SASL_PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+                                                                                 #KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_LISTENER_NAME_INTERNAL_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN,OAUTHBEARER
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/configs/kafka_server_jaas.conf -Dzookeeper.sasl.client=false -Dlogback.configurationFile=/etc/kafka/libs/logback.xml"
+                                                                                                                       #   -Dkafka.plugin.path=/usr/share/java/kafka"
+                                                                                                                       #  KAFKA_LISTENER_NAME_SASL_PLAINTEXT_SCRAM_SHA_256_SASL_JAAS_CONFIG: |
+                                                                                                                          # org.apache.kafka.common.security.scram.ScramLoginModule required
+                                                                                                                       #username="admin" password="admin-secret"; 
+      KAFKA_AUTHORIZER_CLASS_NAME: io.confluent.kafka.security.authorizer.ConfluentServerAuthorizer
+      KAFKA_CONFLUENT_AUTHORIZER_ACCESS_RULE_PROVIDERS: CONFLUENT
+      KAFKA_SUPER_USERS: User:admin
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: localhost:9094
+      KAFKA_CONFLUENT_METADATA_SERVER_LISTENERS: http://0.0.0.0:8091
+      KAFKA_CONFLUENT_METADATA_SERVER_ADVERTISED_LISTENERS: http://kafkaserver-2:8091
+      KAFKA_CONFLUENT_METADATA_SERVER_AUTHENTICATION_METHOD: BEARER
+      KAFKA_CONFLUENT_METADATA_SERVER_USER_STORE: FILE
+      KAFKA_CONFLUENT_METADATA_SERVER_USER_STORE_FILE_PATH: /etc/kafka/tokens/login.properties
+      KAFKA_CONFLUENT_METADATA_SERVER_TOKEN_KEY_PATH: /etc/kafka/tokens/privateKey.pem
+      KAFKA_LISTENER_NAME_TOKEN_SASL_ENABLED_MECHANISMS: OAUTHBEARER
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_LOGIN_CALLBACK_HANDLER_CLASS: io.confluent.kafka.server.plugins.auth.token.TokenBearerServerLoginCallbackHandler
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_SERVER_CALLBACK_HANDLER_CLASS: io.confluent.kafka.server.plugins.auth.token.TokenBearerValidatorCallbackHandler
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_JAAS_CONFIG: \
+         org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required \
+         publicKeyPath="/etc/kafka/tokens/publicKey.pem";
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CONFLUENT_METADATA_TOPIC_REPLICATION_FACTOR: 3                                                       
+
+      
+             
+    volumes:
+            - /home/charan/configs:/etc/kafka/configs   
+            - /home/charan/stores:/etc/kafka/secrets 
+            - /home/charan/tokenKeyPair:/etc/kafka/tokens
+            - /home/charan/libs:/etc/kafka/libs  
+            - /home/charan/admin:/home/appuser                                                                     #- /usr/share/java/confluent-security/connect:/usr/share/java/kafka  
+    restart: always
+    networks:
+      - kafka-network    
+  kafka-3:
+    image: 'confluentinc/cp-server:7.7.1'
+    container_name: kafkaserver-3
+    depends_on:
+      - zookeeper
+      - kafka-1
+      - kafka-2
+    ports:
+      - '9096:9096'
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeperserver:2181
+      ZOOKEEPER_SASL_ENABLED: 'false'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafkaserver-3:9096,SASL_PLAINTEXT://kafkaserver-3:9097,TOKEN://kafkaserver-3:9098
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,TOKEN:SASL_PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+                                                                                                                                     #KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_LISTENER_NAME_INTERNAL_SASL_ENABLED_MECHANISMS: PLAIN                                                                         #SCRAM-SHA-256
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN,OAUTHBEARER                                                                                 #SCRAM-SHA-256
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/configs/kafka_server_jaas.conf -Dzookeeper.sasl.client=false -Dlogback.configurationFile=/etc/kafka/libs/logback.xml"
+                                                                                                                                  # -Dkafka.plugin.path=/usr/share/java/kafka
+
+                                                                                                                                 #  KAFKA_LISTENER_NAME_SASL_PLAINTEXT_SCRAM_SHA_256_SASL_JAAS_CONFIG: |
+                                                                                                                                  # org.apache.kafka.common.security.scram.ScramLoginModule required
+                                                                                                                                 #username="admin" password="admin-secret";
+      KAFKA_AUTHORIZER_CLASS_NAME: io.confluent.kafka.security.authorizer.ConfluentServerAuthorizer
+      KAFKA_SUPER_USERS: User:admin
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: localhost:9094
+      KAFKA_CONFLUENT_METADATA_SERVER_LISTENERS: http://0.0.0.0:8092
+      KAFKA_CONFLUENT_METADATA_SERVER_ADVERTISED_LISTENERS: http://kafkaserver-3:8092
+      KAFKA_CONFLUENT_METADATA_SERVER_AUTHENTICATION_METHOD: BEARER
+      KAFKA_CONFLUENT_METADATA_SERVER_USER_STORE: FILE
+      KAFKA_CONFLUENT_METADATA_SERVER_USER_STORE_FILE_PATH: /etc/kafka/tokens/login.properties
+      KAFKA_CONFLUENT_METADATA_SERVER_TOKEN_KEY_PATH: /etc/kafka/tokens/privateKey.pem
+      KAFKA_LISTENER_NAME_TOKEN_SASL_ENABLED_MECHANISMS: OAUTHBEARER
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_LOGIN_CALLBACK_HANDLER_CLASS: io.confluent.kafka.server.plugins.auth.token.TokenBearerServerLoginCallbackHandler
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_SERVER_CALLBACK_HANDLER_CLASS: io.confluent.kafka.server.plugins.auth.token.TokenBearerValidatorCallbackHandler
+      KAFKA_LISTENER_NAME_TOKEN_OAUTHBEARER_SASL_JAAS_CONFIG: \                             
+         org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required \      
+             publicKeyPath="/etc/kafka/tokens/publicKey.pem";
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CONFLUENT_METADATA_TOPIC_REPLICATION_FACTOR: 3   
+
+              
+    volumes:
+            - /home/charan/configs:/etc/kafka/configs  
+            - /home/charan/stores:/etc/kafka/secrets  
+            - /home/charan/tokenKeyPair:/etc/kafka/tokens
+            - /home/charan/libs:/etc/kafka/libs  
+            - /home/charan/admin:/home/appuser                                                      #- /usr/share/java/confluent-security/connect:/usr/share/java/kafka  
+    restart: always
+    networks:
+      - kafka-network
+
+networks:
+  kafka-network:
+    driver: bridge        
